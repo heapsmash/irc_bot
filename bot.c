@@ -65,7 +65,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    //// Establish USER.
+    //// Establish QUIT.
     snprintf(buf, sizeof(buf), "QUIT");
 
     if (send(sck, buf, strlen(buf), 0) == -1)
