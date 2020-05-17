@@ -21,9 +21,9 @@
 #define ERR_NICKCOLLISION 436
 #define ERR_UNAVAILRESOURCE 437
 
-#define CHANNELS "#c" // comma seperated "#1, #2, #3"
+#define CHANNELS "#c-test" // comma seperated "#1, #2, #3"
 
-#define NICK_NAME "{man_bot}"
+#define NICK_NAME "{manpage}"
 #define USER_NAME "bot"
 #define GECOS "Man Pages" // real name
 
@@ -56,7 +56,7 @@ int EstablishConnection(const char *host, const char *service_str);
 int ConnectionRegistration(int sck);
 int ConnectIRC(char *host, char *port);
 int SendIrcMessage(int sck, char *fmt, ...);
-void WaitAuth(int sck);
+void DisplayUntilFound(int sck, char *str);
 
 int main(int argc, char **argv)
 {
@@ -75,12 +75,9 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    //// Establish QUIT.
-    snprintf(buf, sizeof(buf), "QUIT");
-    if (send(sck, buf, strlen(buf), 0) == -1)
-    {
-        printf("Failed to QUIT\n");
-    }
+    SendIrcMessage(sck, "JOIN %s\r\n", CHANNELS);
+    SendIrcMessage(sck, "PRIVMSG %s HELLO ?\r\n", CHANNELS);
+    DisplayUntilFound(sck, "GOODBY");
 
     return 0;
 }
@@ -89,66 +86,55 @@ int ConnectIRC(char *host, char *port)
 {
     int sck = EstablishConnection(host, port);
 
-    WaitAuth(sck);
+    DisplayUntilFound(sck, "No Ident response");
     if (sck == -1 || ConnectionRegistration(sck) == 0)
         return 0;
+    DisplayUntilFound(sck, ":End of /MOTD command");
 
     return sck;
 }
 
-void WaitAuth(int sck)
+void DisplayUntilFound(int sck, char *str)
 {
     char line[8192];
     TEXTSCK stream;
 
     textsckinit(&stream, sck);
 
-    netgets(line, sizeof(line), &stream); // NOTICE AUTH
+    netgets(line, sizeof(line), &stream);
     printf("%s", line);
 
     while (netgets(line, sizeof(line), &stream))
     {
-        if (line[0] == '\r' && line[1] == '\n')
+        printf("%s", line);
+        if (strstr(line, str) != NULL)
             break;
 
-        printf("%s", line);
-        if (strstr(line, "Found your hostname") != NULL)
-            break;
+        char *tmp = strstr(line, "PING :");
+        if (tmp != NULL)
+        {
+            tmp += 6;
+            SendIrcMessage(sck, "PONG :%s\r\n", tmp);
+        }
     }
 }
 
 int SendIrcMessage(int sck, char *fmt, ...)
 {
-    int size = 0;
-    char *p = NULL;
+    char buf[512];
     va_list ap;
 
     va_start(ap, fmt);
-    size = vsnprintf(p, size, fmt, ap);
+    int nprinted = vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
 
-    if (size < 0)
-        return 0;
-
-    size++;
-    p = malloc(size);
-    if (p == NULL)
-        return 0;
-
-    va_start(ap, fmt);
-    size = vsnprintf(p, size, fmt, ap);
-    va_end(ap);
-
-    if (size < 0)
+    ssize_t total_sent = 0;
+    while (total_sent < nprinted)
     {
-        free(p);
-        return 0;
-    }
-
-    if (send(sck, p, strlen(p), 0) == -1)
-    {
-        printf("Failed to send message\n");
-        return 0;
+        ssize_t nsent = send(sck, buf, nprinted, 0);
+        if (nsent <= 0 && errno != EINTR)
+            return 0;
+        total_sent += nsent;
     }
 
     return 1;
