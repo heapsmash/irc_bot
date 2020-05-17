@@ -8,7 +8,12 @@
 #include <sys/socket.h>
 #include <fcntl.h>
 
-// for nick names
+// for MOTD
+#define RPL_MOTDSTART 375 // ":- <server> Message of the day - "
+#define RPL_MOTD 372      // ":- <text>"
+#define RPL_ENDOFMOTD 376 // ":End of /MOTD command"
+
+// for NICK
 #define ERR_NONICKNAMEGIVEN 431
 #define ERR_ERRONEUSNICKNAME 432
 #define ERR_NICKNAMEINUSE 433
@@ -48,39 +53,62 @@ void textsckinit(TEXTSCK *stream, int fd);
 char *netgets(char *str, size_t size, TEXTSCK *stream);
 int EstablishConnection(const char *host, const char *service_str);
 int ConnectionRegistration(int sck);
+int ConnectIRC(char *host, char *port);
+void GetMOTD(int fd);
 
 int main(int argc, char **argv)
 {
-    int status = 1;
+    char buf[8192];
 
     if (argc < 3)
     {
         printf("usage: ./bot server port\n");
-        goto ret;
+        return 1;
     }
 
-    int sck = EstablishConnection(argv[1], argv[2]);
-    if (sck == -1)
+    int sck = ConnectIRC(argv[1], argv[2]);
+    if (sck == 0)
     {
-        printf("Failed to connect to host %s\n", argv[1]);
-        goto ret;
+        printf("Failed to connect to server\n");
+        return 1;
     }
 
-    if (ConnectionRegistration(sck) == 0)
-        goto close_sck;
-
-    status = 0;
-
-    char buf[8192];
     //// Establish QUIT.
     snprintf(buf, sizeof(buf), "QUIT");
     if (send(sck, buf, strlen(buf), 0) == -1)
+    {
         printf("Failed to QUIT\n");
+    }
 
-close_sck:
-    close(sck);
-ret:
-    return status;
+    return 0;
+}
+
+int ConnectIRC(char *host, char *port)
+{
+    char buf[8192];
+    int sck = EstablishConnection(host, port);
+
+    if (sck == -1 || ConnectionRegistration(sck) == 0)
+        return 0;
+
+    puts("GOT TO GetMOTD");
+    GetMOTD(sck);
+    puts("OUT OF MOTD");
+
+    return sck;
+}
+
+void GetMOTD(int sck)
+{
+    TEXTSCK stream;
+    char buf[8192];
+
+    textsckinit(&stream, sck);
+
+    while (netgets(buf, sizeof buf, &stream))
+    {
+        printf("%s", buf);
+    }
 }
 
 int ConnectionRegistration(int sck)
