@@ -8,9 +8,25 @@
 #include <sys/socket.h>
 #include <fcntl.h>
 
-#define NICK_NAME "man_bot"
+// for nick names
+#define ERR_NONICKNAMEGIVEN 431
+#define ERR_ERRONEUSNICKNAME 432
+#define ERR_NICKNAMEINUSE 433
+#define ERR_NICKCOLLISION 436
+#define ERR_UNAVAILRESOURCE 437
+
+#define CHANNELS "#c" // comma seperated "#1, #2, #3"
+
+#define NICK_NAME "{man_bot}"
 #define USER_NAME "bot"
 #define GECOS "Man Pages" // real name
+
+char *g_nicks[] = {
+    "man_bot",
+    "_man_bot_",
+    "{man_bot}",
+    "{_manbot_}",
+};
 
 typedef struct
 {
@@ -54,6 +70,13 @@ int main(int argc, char **argv)
         goto close_sck;
 
     status = 0;
+
+    char buf[8192];
+    //// Establish QUIT.
+    snprintf(buf, sizeof(buf), "QUIT");
+    if (send(sck, buf, strlen(buf), 0) == -1)
+        printf("Failed to QUIT\n");
+
 close_sck:
     close(sck);
 ret:
@@ -77,14 +100,6 @@ int ConnectionRegistration(int sck)
     if (send(sck, buf, strlen(buf), 0) == -1)
     {
         printf("Failed to Establish USER\n");
-        return 0;
-    }
-
-    //// Establish QUIT.
-    snprintf(buf, sizeof(buf), "QUIT");
-    if (send(sck, buf, strlen(buf), 0) == -1)
-    {
-        printf("Failed to QUIT\n");
         return 0;
     }
 
