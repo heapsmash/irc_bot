@@ -10,7 +10,7 @@
 
 #define NICK_NAME "man_bot"
 #define USER_NAME "bot"
-#define REAL_NAME "Man Pages"
+#define GECOS "Man Pages" // real name
 
 typedef struct
 {
@@ -31,10 +31,10 @@ char *ChompWS(char *str);
 void textsckinit(TEXTSCK *stream, int fd);
 char *netgets(char *str, size_t size, TEXTSCK *stream);
 int EstablishConnection(const char *host, const char *service_str);
+int ConnectionRegistration(int sck);
 
 int main(int argc, char **argv)
 {
-    char buf[8192];
     int status = 1;
 
     if (argc < 3)
@@ -50,20 +50,34 @@ int main(int argc, char **argv)
         goto ret;
     }
 
+    if (ConnectionRegistration(sck) == 0)
+        goto close_sck;
+
+    status = 0;
+close_sck:
+    close(sck);
+ret:
+    return status;
+}
+
+int ConnectionRegistration(int sck)
+{
+    char buf[8192];
+
     //// Establish NICK.
     snprintf(buf, sizeof(buf), "NICK %s", NICK_NAME);
     if (send(sck, buf, strlen(buf), 0) == -1)
-    {
+    { // TODO: Handle nick in use case
         printf("Failed to Establish NICK\n");
-        goto close_sck;
+        return 0;
     }
 
     //// Establish USER.
-    snprintf(buf, sizeof(buf), "USER %s * * :%s", USER_NAME, REAL_NAME);
+    snprintf(buf, sizeof(buf), "USER %s * * :%s", USER_NAME, GECOS);
     if (send(sck, buf, strlen(buf), 0) == -1)
     {
         printf("Failed to Establish USER\n");
-        goto close_sck;
+        return 0;
     }
 
     //// Establish QUIT.
@@ -71,14 +85,10 @@ int main(int argc, char **argv)
     if (send(sck, buf, strlen(buf), 0) == -1)
     {
         printf("Failed to QUIT\n");
-        goto close_sck;
+        return 0;
     }
 
-    status = 0;
-close_sck:
-    close(sck);
-ret:
-    return status;
+    return 1;
 }
 
 void textsckinit(TEXTSCK *stream, int fd)
