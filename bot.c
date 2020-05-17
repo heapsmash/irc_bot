@@ -68,15 +68,13 @@ int main(int argc, char **argv)
 
     //// Establish QUIT.
     snprintf(buf, sizeof(buf), "QUIT");
-
     if (send(sck, buf, strlen(buf), 0) == -1)
     {
         printf("Failed to QUIT\n");
         goto close_sck;
     }
 
-    status = 1;
-
+    status = 0;
 close_sck:
     close(sck);
 ret:
