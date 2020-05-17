@@ -54,7 +54,7 @@ char *netgets(char *str, size_t size, TEXTSCK *stream);
 int EstablishConnection(const char *host, const char *service_str);
 int ConnectionRegistration(int sck);
 int ConnectIRC(char *host, char *port);
-void GetMOTD(int fd);
+void WaitAuth(int sck);
 
 int main(int argc, char **argv)
 {
@@ -85,29 +85,36 @@ int main(int argc, char **argv)
 
 int ConnectIRC(char *host, char *port)
 {
-    char buf[8192];
     int sck = EstablishConnection(host, port);
+
+    WaitAuth(sck);
 
     if (sck == -1 || ConnectionRegistration(sck) == 0)
         return 0;
 
-    puts("GOT TO GetMOTD");
-    GetMOTD(sck);
-    puts("OUT OF MOTD");
+    puts("sent connection info");
 
     return sck;
 }
 
-void GetMOTD(int sck)
+void WaitAuth(int sck)
 {
+    char line[8192];
     TEXTSCK stream;
-    char buf[8192];
 
     textsckinit(&stream, sck);
 
-    while (netgets(buf, sizeof buf, &stream))
+    netgets(line, sizeof(line), &stream); // NOTICE AUTH
+    printf("%s", line);
+
+    while (netgets(line, sizeof(line), &stream))
     {
-        printf("%s", buf);
+        if (line[0] == '\r' && line[1] == '\n')
+            break;
+
+        printf("%s", line);
+        if (strstr(line, "NOTICE AUTH :*** No Ident response") != NULL)
+            break;
     }
 }
 
