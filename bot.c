@@ -35,18 +35,19 @@ int EstablishConnection(const char *host, const char *service_str);
 int main(int argc, char **argv)
 {
     char buf[8192];
+    int status = 1;
 
     if (argc < 3)
     {
         printf("usage: ./bot server port\n");
-        return 1;
+        goto ret;
     }
 
     int sck = EstablishConnection(argv[1], argv[2]);
     if (sck == -1)
     {
         printf("Failed to connect to host %s\n", argv[1]);
-        return 1;
+        goto ret;
     }
 
     //// Establish NICK.
@@ -54,7 +55,7 @@ int main(int argc, char **argv)
     if (send(sck, buf, strlen(buf), 0) == -1)
     {
         printf("Failed to Establish NICK\n");
-        return 1;
+        goto close_sck;
     }
 
     //// Establish USER.
@@ -62,7 +63,7 @@ int main(int argc, char **argv)
     if (send(sck, buf, strlen(buf), 0) == -1)
     {
         printf("Failed to Establish USER\n");
-        return 1;
+        goto close_sck;
     }
 
     //// Establish QUIT.
@@ -71,12 +72,15 @@ int main(int argc, char **argv)
     if (send(sck, buf, strlen(buf), 0) == -1)
     {
         printf("Failed to QUIT\n");
-        return 1;
+        goto close_sck;
     }
 
-    close(sck);
+    status = 1;
 
-    return 0;
+close_sck:
+    close(sck);
+ret:
+    return status;
 }
 
 void textsckinit(TEXTSCK *stream, int fd)
