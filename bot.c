@@ -7,6 +7,7 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <fcntl.h>
+#include <stdarg.h>
 
 // for MOTD
 #define RPL_MOTDSTART 375 // ":- <server> Message of the day - "
@@ -54,6 +55,7 @@ char *netgets(char *str, size_t size, TEXTSCK *stream);
 int EstablishConnection(const char *host, const char *service_str);
 int ConnectionRegistration(int sck);
 int ConnectIRC(char *host, char *port);
+int SendIrcMessage(int sck, char *fmt, ...);
 void WaitAuth(int sck);
 
 int main(int argc, char **argv)
@@ -88,11 +90,8 @@ int ConnectIRC(char *host, char *port)
     int sck = EstablishConnection(host, port);
 
     WaitAuth(sck);
-
     if (sck == -1 || ConnectionRegistration(sck) == 0)
         return 0;
-
-    puts("sent connection info");
 
     return sck;
 }
@@ -113,30 +112,55 @@ void WaitAuth(int sck)
             break;
 
         printf("%s", line);
-        if (strstr(line, "NOTICE AUTH :*** No Ident response") != NULL)
+        if (strstr(line, "Found your hostname") != NULL)
             break;
     }
 }
 
+int SendIrcMessage(int sck, char *fmt, ...)
+{
+    int size = 0;
+    char *p = NULL;
+    va_list ap;
+
+    va_start(ap, fmt);
+    size = vsnprintf(p, size, fmt, ap);
+    va_end(ap);
+
+    if (size < 0)
+        return 0;
+
+    size++;
+    p = malloc(size);
+    if (p == NULL)
+        return 0;
+
+    va_start(ap, fmt);
+    size = vsnprintf(p, size, fmt, ap);
+    va_end(ap);
+
+    if (size < 0)
+    {
+        free(p);
+        return 0;
+    }
+
+    if (send(sck, p, strlen(p), 0) == -1)
+    {
+        printf("Failed to send message\n");
+        return 0;
+    }
+
+    return 1;
+}
+
 int ConnectionRegistration(int sck)
 {
-    char buf[8192];
-
-    //// Establish NICK.
-    snprintf(buf, sizeof(buf), "NICK %s", NICK_NAME);
-    if (send(sck, buf, strlen(buf), 0) == -1)
-    { // TODO: Handle nick in use case
-        printf("Failed to Establish NICK\n");
+    if (SendIrcMessage(sck, "NICK %s\r\n", NICK_NAME) == 0)
         return 0;
-    }
 
-    //// Establish USER.
-    snprintf(buf, sizeof(buf), "USER %s * * :%s", USER_NAME, GECOS);
-    if (send(sck, buf, strlen(buf), 0) == -1)
-    {
-        printf("Failed to Establish USER\n");
+    if (SendIrcMessage(sck, "USER %s * * :%s\r\n", USER_NAME, GECOS) == 0)
         return 0;
-    }
 
     return 1;
 }
