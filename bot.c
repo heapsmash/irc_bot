@@ -1,15 +1,16 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #include <string.h>
-#include <getopt.h>
 #include <errno.h>
 #include <unistd.h>
 #include <netdb.h>
 #include <sys/socket.h>
 #include <fcntl.h>
-#include <limits.h>
+
+#define NICK_NAME "man_bot"
+#define USER_NAME "bot"
+#define REAL_NAME "Man Pages"
 
 typedef struct
 {
@@ -27,25 +28,17 @@ typedef struct
 } TEXTSCK;
 
 char *ChompWS(char *str);
-char *netgets(char *str, size_t size, TEXTSCK *stream);
 void textsckinit(TEXTSCK *stream, int fd);
-
+char *netgets(char *str, size_t size, TEXTSCK *stream);
 int EstablishConnection(const char *host, const char *service_str);
 
 int main(int argc, char **argv)
 {
-    char *endptr;
+    char buf[8192];
 
     if (argc < 3)
     {
         printf("usage: ./bot server port\n");
-        return 1;
-    }
-
-    strtol(argv[2], &endptr, 10);
-    if (endptr == argv[2])
-    {
-        fprintf(stderr, "usage: ./bot server port\n");
         return 1;
     }
 
@@ -55,6 +48,33 @@ int main(int argc, char **argv)
         printf("Failed to connect to host %s\n", argv[1]);
         return 1;
     }
+
+    //// Establish NICK.
+    snprintf(buf, sizeof(buf), "NICK %s", NICK_NAME);
+    if (send(sck, buf, strlen(buf), 0) == -1)
+    {
+        printf("Failed to Establish NICK\n");
+        return 1;
+    }
+
+    //// Establish USER.
+    snprintf(buf, sizeof(buf), "USER %s * * :%s", USER_NAME, REAL_NAME);
+    if (send(sck, buf, strlen(buf), 0) == -1)
+    {
+        printf("Failed to Establish USER\n");
+        return 1;
+    }
+
+    //// Establish USER.
+    snprintf(buf, sizeof(buf), "QUIT");
+
+    if (send(sck, buf, strlen(buf), 0) == -1)
+    {
+        printf("Failed to QUIT\n");
+        return 1;
+    }
+
+    close(sck);
 
     return 0;
 }
