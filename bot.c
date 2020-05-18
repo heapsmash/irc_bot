@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -76,8 +75,7 @@ int main(int argc, char **argv)
     }
 
     SendIrcMessage(sck, "JOIN %s\r\n", CHANNELS);
-    SendIrcMessage(sck, "PRIVMSG %s HELLO ?\r\n", CHANNELS);
-    DisplayUntilFound(sck, "GOODBY");
+    DisplayUntilFound(sck, "GOODBYE");
 
     return 0;
 }
@@ -86,7 +84,7 @@ int ConnectIRC(char *host, char *port)
 {
     int sck = EstablishConnection(host, port);
 
-    DisplayUntilFound(sck, "No Ident response");
+    DisplayUntilFound(sck, "Found your hostname");
     if (sck == -1 || ConnectionRegistration(sck) == 0)
         return 0;
     DisplayUntilFound(sck, ":End of /MOTD command");
@@ -104,17 +102,50 @@ void DisplayUntilFound(int sck, char *str)
     netgets(line, sizeof(line), &stream);
     printf("%s", line);
 
+    char *tmp;
     while (netgets(line, sizeof(line), &stream))
     {
         printf("%s", line);
         if (strstr(line, str) != NULL)
             break;
 
-        char *tmp = strstr(line, "PING :");
+        tmp = strstr(line, "PING :");
         if (tmp != NULL)
         {
             tmp += 6;
             SendIrcMessage(sck, "PONG :%s\r\n", tmp);
+        }
+
+        tmp = strstr(line, ":..apropos");
+        if (tmp != NULL)
+        {
+            char *command = (tmp + 3); // the command to run
+
+            while (*tmp-- != '#')
+                ;
+            tmp++; // whitespace
+
+            char *octothorp = strdup(tmp);
+            *(strchr(octothorp, ' ')) = '\0';
+
+            SendIrcMessage(sck, "PRIVMSG %s apropos\r\n", octothorp);
+            puts(command);
+        }
+
+        tmp = strstr(line, ":..man");
+        if (tmp != NULL)
+        {
+            char *command = (tmp + 3); // the command to run
+
+            while (*tmp-- != '#')
+                ;
+            tmp++; // whitespace
+
+            char *octothorp = strdup(tmp);
+            *(strchr(octothorp, ' ')) = '\0';
+
+            SendIrcMessage(sck, "PRIVMSG %s manpages\r\n", octothorp);
+            puts(command);
         }
     }
 }
