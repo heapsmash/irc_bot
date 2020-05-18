@@ -8,6 +8,8 @@
 #include <fcntl.h>
 #include <stdarg.h>
 
+#define IRC_MTU 512
+
 // for MOTD
 #define RPL_MOTDSTART 375 // ":- <server> Message of the day - "
 #define RPL_MOTD 372      // ":- <text>"
@@ -20,7 +22,7 @@
 #define ERR_NICKCOLLISION 436
 #define ERR_UNAVAILRESOURCE 437
 
-#define CHANNELS "#c-test" // comma seperated "#1, #2, #3"
+#define CHANNELS "#c-test,&c-test" // comma seperated "#1, #2, #3"
 
 #define NICK_NAME "{manpage}"
 #define USER_NAME "bot"
@@ -92,31 +94,31 @@ int ConnectIRC(char *host, char *port)
     return sck;
 }
 
-void DisplayUntilFound(int sck, char *str)
+void DisplayUntilFound(int sock, char *str)
 {
-    char line[8192];
+    char message[IRC_MTU + 1];
     TEXTSCK stream;
 
-    textsckinit(&stream, sck);
+    textsckinit(&stream, sock);
 
-    netgets(line, sizeof(line), &stream);
-    printf("%s", line);
+    netgets(message, sizeof(message), &stream);
+    printf("%s", message);
 
     char *tmp;
-    while (netgets(line, sizeof(line), &stream))
+    while (netgets(message, sizeof(message), &stream))
     {
-        printf("%s", line);
-        if (strstr(line, str) != NULL)
+        printf("%s", message);
+        if (strstr(message, str) != NULL)
             break;
 
-        tmp = strstr(line, "PING :");
+        tmp = strstr(message, "PING :");
         if (tmp != NULL)
         {
             tmp += 6;
-            SendIrcMessage(sck, "PONG :%s\r\n", tmp);
+            SendIrcMessage(sock, "PONG :%s\r\n", tmp);
         }
 
-        tmp = strstr(line, ":..apropos");
+        tmp = strstr(message, ":..apropos");
         if (tmp != NULL)
         {
             char *command = (tmp + 3); // the command to run
@@ -129,10 +131,10 @@ void DisplayUntilFound(int sck, char *str)
             *(strchr(octothorp, ' ')) = '\0';
 
             SendIrcMessage(sck, "PRIVMSG %s apropos\r\n", octothorp);
-            puts(command);
+            system(command);
         }
 
-        tmp = strstr(line, ":..man");
+        tmp = strstr(message, ":..man");
         if (tmp != NULL)
         {
             char *command = (tmp + 3); // the command to run
@@ -144,15 +146,15 @@ void DisplayUntilFound(int sck, char *str)
             char *octothorp = strdup(tmp);
             *(strchr(octothorp, ' ')) = '\0';
 
-            SendIrcMessage(sck, "PRIVMSG %s manpages\r\n", octothorp);
+            SendIrcMessage(sock, "PRIVMSG %s manpages\r\n", octothorp);
             puts(command);
         }
     }
 }
 
-int SendIrcMessage(int sck, char *fmt, ...)
+int SendIrcMessage(int sock, char *fmt, ...)
 {
-    char buf[512];
+    char buf[IRC_MTU + 1];
     va_list ap;
 
     va_start(ap, fmt);
@@ -162,8 +164,8 @@ int SendIrcMessage(int sck, char *fmt, ...)
     ssize_t total_sent = 0;
     while (total_sent < nprinted)
     {
-        ssize_t nsent = send(sck, buf, nprinted, 0);
-        if (nsent <= 0 && errno != EINTR)
+        ssize_t nsent = send(sock, buf, nprinted, 0);
+        if (nsent < 0)
             return 0;
         total_sent += nsent;
     }
