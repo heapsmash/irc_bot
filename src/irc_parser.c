@@ -2,19 +2,7 @@
 #include <string.h>
 
 #include "irc_parser.h"
-
-char *ChompWS(char *str)
-{
-    str += strspn(str, " \t\r\n");
-
-    char *end = str + strlen(str) - 1;
-    while (end > str && (*end == ' ' || *end == '\t' ||
-                         *end == '\r' || *end == '\n'))
-        end--;
-
-    end[1] = '\0';
-    return str;
-}
+#include "util.h"
 
 void PrintFields(IRC_MESSAGE_FIELDS msg)
 {
@@ -52,8 +40,10 @@ void ParseMessage(char *str, IRC_MESSAGE_FIELDS *msg)
     else // there was no prefix
     {
         msg->prefix = NULL;
-        ParseCommand(str, msg);
     }
+
+    ParseCommand(str, msg);
+    ParseParams(msg);
 }
 
 // <prefix>   ::= <servername> | <nick> [ '!' <user> ] [ '@' <host> ]
@@ -66,17 +56,7 @@ void ParsePrefix(char *str, IRC_MESSAGE_FIELDS *msg)
 // <command>  ::= <letter> { <letter> } | <number> <number> <number>
 void ParseCommand(char *str, IRC_MESSAGE_FIELDS *msg)
 {
-    if (str == NULL)
-    {
-        msg->command = strtok(NULL, " ");
-    }
-
-    else // there was no prefix
-    {
-        msg->command = strtok(str, " ");
-    }
-
-    ParseParams(msg);
+    msg->command = strtok(NULL, " ");
 }
 
 // <params>   ::= <SPACE> [ ':' <trailing> | <middle> <params> ]
@@ -90,7 +70,7 @@ void ParseParams(IRC_MESSAGE_FIELDS *msg)
         msg->params[i] = strtok(NULL, " ");
         if (msg->params[i] != NULL)
         {
-            char *contains_colon = strstr(msg->params[i], ":");
+            char *contains_colon = strchr(msg->params[i], ':');
             if (contains_colon)
             {
                 msg->params[i] = (strstr(msg->message, contains_colon)) + 1;
