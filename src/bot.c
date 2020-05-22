@@ -57,14 +57,17 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    int sck = ConnectIRC(argv[1], argv[2]);
-    if (sck == 0)
+    int sock = ConnectIRC(argv[1], argv[2]);
+
+    if (sock <= 0)
     {
         printf("Failed to connect to server\n");
         return 1;
     }
 
-    SendIrcMessage(sck, "JOIN %s\r\n", CHANNELS);
+    SendIrcMessage(sock, "JOIN %s\r\n", CHANNELS);
+
+    GetIrcMessages(sock);
 
     return 0;
 }
@@ -73,12 +76,8 @@ int ConnectIRC(char *host, char *port)
 {
     int sock = EstablishConnection(host, port);
 
-    GetAuth(sock);
-
-    if (sock == -1 || ConnectionRegistration(sock) == 0)
+    if (GetAuth(sock) == 0 || sock == -1 || ConnectionRegistration(sock) == 0)
         return 0;
-
-    GetIrcMessages(sock);
 
     return sock;
 }
@@ -97,9 +96,10 @@ int GetAuth(int sock)
         ParseMessage(buf, &msg);
         puts(msg.message);
 
-        if (strncmp(msg.params[0], "AUTH", sizeof(msg.params[0]) - 1) == 0)
+        if (strstr(msg.message, "NOTICE AUTH :*** Found your hostname") != NULL)
             return 1;
     }
+
     return 0;
 }
 
@@ -116,6 +116,9 @@ int GetIrcMessages(int sock)
         netgets(buf, sizeof buf, &stream);
         ParseMessage(buf, &msg);
         puts(msg.message);
+
+        if (msg.prefix == NULL && strncmp(msg.command, "PING", strlen(msg.command) - 1) == 0) // Check prefix before using strncmp for 'speed'
+            SendIrcMessage(sock, "PONG %s\r\n", msg.params[0]);
     }
 }
 
