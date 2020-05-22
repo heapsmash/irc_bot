@@ -8,6 +8,9 @@
 #include <fcntl.h>
 #include <stdarg.h>
 
+#include "netget.h"
+#include "irc_parser.h"
+
 #define IRC_MTU 512
 
 // for MOTD
@@ -35,24 +38,8 @@ char *g_nicks[] = {
     "{_manbot_}",
 };
 
-typedef struct
-{
-    char *key;
-    char *val;
-} KVPAIR;
-
-typedef struct
-{
-    int fd;
-    int is_done;
-    size_t pos;
-    size_t buflen;
-    char buf[BUFSIZ];
-} TEXTSCK;
-
 char *ChompWS(char *str);
-void textsckinit(TEXTSCK *stream, int fd);
-char *netgets(char *str, size_t size, TEXTSCK *stream);
+
 int EstablishConnection(const char *host, const char *service_str);
 int ConnectionRegistration(int sck);
 int ConnectIRC(char *host, char *port);
@@ -77,7 +64,6 @@ int main(int argc, char **argv)
     }
 
     SendIrcMessage(sck, "JOIN %s\r\n", CHANNELS);
-    DisplayUntilFound(sck, "GOODBYE");
 
     return 0;
 }
@@ -86,70 +72,10 @@ int ConnectIRC(char *host, char *port)
 {
     int sck = EstablishConnection(host, port);
 
-    DisplayUntilFound(sck, "Found your hostname");
     if (sck == -1 || ConnectionRegistration(sck) == 0)
         return 0;
-    DisplayUntilFound(sck, ":End of /MOTD command");
 
     return sck;
-}
-
-void DisplayUntilFound(int sock, char *str)
-{
-    char message[IRC_MTU + 1];
-    TEXTSCK stream;
-
-    textsckinit(&stream, sock);
-
-    netgets(message, sizeof(message), &stream);
-    printf("%s", message);
-
-    char *tmp;
-    while (netgets(message, sizeof(message), &stream))
-    {
-        printf("%s", message);
-        if (strstr(message, str) != NULL)
-            break;
-
-        tmp = strstr(message, "PING :");
-        if (tmp != NULL)
-        {
-            tmp += 6;
-            SendIrcMessage(sock, "PONG :%s\r\n", tmp);
-        }
-
-        tmp = strstr(message, ":..apropos");
-        if (tmp != NULL)
-        {
-            char *command = (tmp + 3); // the command to run
-
-            while (*tmp-- != '#')
-                ;
-            tmp++; // whitespace
-
-            char *octothorp = strdup(tmp);
-            *(strchr(octothorp, ' ')) = '\0';
-
-            SendIrcMessage(sck, "PRIVMSG %s apropos\r\n", octothorp);
-            system(command);
-        }
-
-        tmp = strstr(message, ":..man");
-        if (tmp != NULL)
-        {
-            char *command = (tmp + 3); // the command to run
-
-            while (*tmp-- != '#')
-                ;
-            tmp++; // whitespace
-
-            char *octothorp = strdup(tmp);
-            *(strchr(octothorp, ' ')) = '\0';
-
-            SendIrcMessage(sock, "PRIVMSG %s manpages\r\n", octothorp);
-            puts(command);
-        }
-    }
 }
 
 int SendIrcMessage(int sock, char *fmt, ...)
@@ -182,53 +108,6 @@ int ConnectionRegistration(int sck)
         return 0;
 
     return 1;
-}
-
-void textsckinit(TEXTSCK *stream, int fd)
-{
-    stream->fd = fd;
-    stream->is_done = 0;
-    stream->pos = 0;
-    stream->buflen = 0;
-}
-
-int netgetc(TEXTSCK *stream)
-{
-    if (stream->is_done)
-        return EOF;
-
-    if (stream->pos == stream->buflen)
-    {
-        ssize_t nread = read(stream->fd, stream->buf, sizeof(stream->buf));
-        if (nread <= 0)
-            stream->is_done = 1;
-
-        stream->pos = 0;
-        stream->buflen = nread;
-    }
-
-    return stream->buf[stream->pos++];
-}
-
-char *netgets(char *str, size_t size, TEXTSCK *stream)
-{
-    char *s = str;
-    int c = 0;
-
-    if (stream->is_done)
-        return NULL;
-
-    for (size_t i = 0; i != size - 1 && c != '\n'; i++)
-    {
-        c = netgetc(stream);
-        if (c == EOF)
-            break;
-
-        *s++ = c;
-    }
-
-    *s = '\0';
-    return str;
 }
 
 char *ChompWS(char *str)
