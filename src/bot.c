@@ -117,8 +117,7 @@ int GetIrcMessages(int sock)
         ParseMessage(buf, &msg);
         puts(msg.message);
 
-        // Check prefix before using strncmp for 'speed'
-        if (msg.prefix == NULL && strncmp(msg.command, "PING", strlen(msg.command) - 1) == 0)
+        if (msg.prefix == NULL && strncmp(msg.command, "PING", strlen(msg.command) - 1) == 0) // Check prefix before using strncmp for 'speed'
             SendIrcMessage(sock, "PONG %s\r\n", msg.params[0]);
     }
 }
