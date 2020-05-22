@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <stdarg.h>
 
+#include "util.h"
 #include "netget.h"
 #include "irc_parser.h"
 
@@ -26,7 +27,6 @@
 #define ERR_UNAVAILRESOURCE 437
 
 #define CHANNELS "#c-test,&c-test" // comma seperated "#1, #2, #3"
-
 #define NICK_NAME "{manpage}"
 #define USER_NAME "bot"
 #define GECOS "Man Pages" // real name
@@ -38,16 +38,14 @@ char *g_nicks[] = {
     "{_manbot_}",
 };
 
-char *ChompWS(char *str);
-
 int GetIrcMessages(int sock);
 int GetAuth(int sock);
+int SendIrcMessage(int sck, char *fmt, ...);
+void DisplayUntilFound(int sck, char *str);
 
 int EstablishConnection(const char *host, const char *service_str);
 int ConnectionRegistration(int sck);
 int ConnectIRC(char *host, char *port);
-int SendIrcMessage(int sck, char *fmt, ...);
-void DisplayUntilFound(int sck, char *str);
 
 int main(int argc, char **argv)
 {
@@ -85,7 +83,7 @@ int ConnectIRC(char *host, char *port)
 int GetAuth(int sock)
 {
     TEXTSCK stream;
-    IRC_MESSAGE_FIELDS msg;
+    IrcMessage msg;
     char buf[IRC_MTU + 1];
 
     textsckinit(&stream, sock);
@@ -93,7 +91,7 @@ int GetAuth(int sock)
     while (1)
     {
         netgets(buf, sizeof buf, &stream);
-        ParseMessage(buf, &msg);
+        ParseIrcMessage(buf, &msg);
         puts(msg.message);
 
         if (strstr(msg.message, "NOTICE AUTH :*** Found your hostname") != NULL)
@@ -106,7 +104,7 @@ int GetAuth(int sock)
 int GetIrcMessages(int sock)
 {
     TEXTSCK stream;
-    IRC_MESSAGE_FIELDS msg;
+    IrcMessage msg;
     char buf[IRC_MTU + 1];
 
     textsckinit(&stream, sock);
@@ -114,7 +112,7 @@ int GetIrcMessages(int sock)
     while (1)
     {
         netgets(buf, sizeof buf, &stream);
-        ParseMessage(buf, &msg);
+        ParseIrcMessage(buf, &msg);
         puts(msg.message);
 
         if (msg.prefix == NULL && strncmp(msg.command, "PING", strlen(msg.command) - 1) == 0) // Check prefix before using strncmp for 'speed'
