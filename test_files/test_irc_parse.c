@@ -5,6 +5,7 @@
 #define MAX_MESSAGE 512
 
 char *g_messages[] = {
+    ":irc.Prison.NET 004 {TEST} irc.Prison.NET ircd-ratbox-2.2.9 oiwszcerkfydnxbauglZCD biklmnopstveI bkloveI",
     "NOTICE AUTH :*** Processing connection to irc.servercentral.net",
     "PING :irc.servercentral.net ",
     ":irc.servercentral.net 372 {manpage} :- -  ",
@@ -122,12 +123,15 @@ void ParseParams(IRC_MESSAGE_FIELDS *msg)
     {
         i++;
         msg->params[i] = strtok(NULL, " ");
-        char *contains_colon = strstr(msg->params[i], ":");
-        if (contains_colon)
+        if (msg->params[i] != NULL)
         {
-            msg->params[i] = (strstr(msg->message, contains_colon)) + 1;
-            msg->params[i + 1] = NULL;
-            break;
+            char *contains_colon = strstr(msg->params[i], ":");
+            if (contains_colon)
+            {
+                msg->params[i] = (strstr(msg->message, contains_colon)) + 1;
+                msg->params[i + 1] = NULL;
+                break;
+            }
         }
 
     } while (msg->params[i] != NULL);

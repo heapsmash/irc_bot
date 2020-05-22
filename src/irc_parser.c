@@ -87,14 +87,16 @@ void ParseParams(IRC_MESSAGE_FIELDS *msg)
     {
         i++;
         msg->params[i] = strtok(NULL, " ");
-        char *contains_colon = strstr(msg->params[i], ":");
-        if (contains_colon)
+        if (msg->params[i] != NULL)
         {
-            msg->params[i] = (strstr(msg->message, contains_colon)) + 1;
-            msg->params[i] = ChompWS(msg->params[i]);
-            msg->params[i + 1] = NULL;
-            break;
+            char *contains_colon = strstr(msg->params[i], ":");
+            if (contains_colon)
+            {
+                msg->params[i] = (strstr(msg->message, contains_colon)) + 1;
+                msg->params[i] = ChompWS(msg->params[i]);
+                msg->params[i + 1] = NULL;
+                break;
+            }
         }
-
     } while (msg->params[i] != NULL);
 }
