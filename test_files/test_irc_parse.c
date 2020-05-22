@@ -100,35 +100,27 @@ void ParseMessage(char *str, IRC_MESSAGE_FIELDS *msg)
     if (str[0] == ':')
     {
         ParsePrefix(str, msg);
+        ParseCommand(NULL, msg);
     }
     else // there was no prefix
     {
         msg->prefix = NULL;
         ParseCommand(str, msg);
     }
+
+    ParseParams(msg);
 }
 
 // <prefix>   ::= <servername> | <nick> [ '!' <user> ] [ '@' <host> ]
 void ParsePrefix(char *str, IRC_MESSAGE_FIELDS *msg)
 {
     msg->prefix = strtok(str, " ") + 1; // truncate :
-    ParseCommand(NULL, msg);
 }
 
 // <command>  ::= <letter> { <letter> } | <number> <number> <number>
 void ParseCommand(char *str, IRC_MESSAGE_FIELDS *msg)
 {
-    if (str == NULL)
-    {
-        msg->command = strtok(NULL, " ");
-    }
-
-    else // there was no prefix
-    {
-        msg->command = strtok(str, " ");
-    }
-
-    ParseParams(msg);
+    msg->command = strtok(str, " ");
 }
 
 // <params>   ::= <SPACE> [ ':' <trailing> | <middle> <params> ]
