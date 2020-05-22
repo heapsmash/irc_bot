@@ -2,101 +2,56 @@
 #include <string.h>
 
 #include "irc_parser.h"
+#include "util.h"
 
-char *ChompWS(char *str)
+void PrintFields(IrcMessage msg)
 {
-    str += strspn(str, " \t\r\n");
-
-    char *end = str + strlen(str) - 1;
-    while (end > str && (*end == ' ' || *end == '\t' ||
-                         *end == '\r' || *end == '\n'))
-        end--;
-
-    end[1] = '\0';
-    return str;
-}
-
-void PrintFields(IRC_MESSAGE_FIELDS msg)
-{
-    puts("\n########################\n");
-    printf("message: \t%s\n", msg.message);
-    puts("---------------");
-    if (msg.prefix != NULL)
-        printf("prefix: \t%s\n", msg.prefix);
-    else
-        printf("prefix: NULL\n");
-
-    puts("---------------");
-    printf("command: \t%s\n", msg.command);
-
-    puts("---------------");
-
-    printf("params:");
-    for (int i = 0; msg.params[i] != NULL; i++)
-        printf("\t\t%s\n", msg.params[i]);
-    puts("\t\tNULL\n");
-
-    puts("########################\n");
+    printf("[<prefix>: %s ] <command>: %s <params> ", msg.prefix, msg.command);
+    for (int i = 0; i < msg.num_params; i++)
+        printf("%s ", msg.params[i]);
 }
 
 // <message>  ::= [':' <prefix> <SPACE> ] <command> <params> <crlf>
-void ParseMessage(char *str, IRC_MESSAGE_FIELDS *msg)
+int ParseIrcMessage(char *message_str, IrcMessage *msg)
 {
-    msg->message = strdup(str);
+    char *last = NULL;
+    char *param;
 
-    if (str[0] == ':')
-    {
-        ParsePrefix(str, msg);
-    }
-    else // there was no prefix
-    {
-        msg->prefix = NULL;
-        ParseCommand(str, msg);
-    }
-}
+    msg->message = ChompWS(strdup(message_str));
+    msg->prefix = NULL;
+    msg->num_params = 0;
 
-// <prefix>   ::= <servername> | <nick> [ '!' <user> ] [ '@' <host> ]
-void ParsePrefix(char *str, IRC_MESSAGE_FIELDS *msg)
-{
-    msg->prefix = strtok(str, " ") + 1; // truncate :
-    ParseCommand(NULL, msg);
-}
-
-// <command>  ::= <letter> { <letter> } | <number> <number> <number>
-void ParseCommand(char *str, IRC_MESSAGE_FIELDS *msg)
-{
-    if (str == NULL)
+    // If it has a prefix, parse that
+    if (*message_str == ':')
     {
-        msg->command = strtok(NULL, " ");
+        msg->prefix = message_str + 1;
+
+        message_str = strchr(msg->prefix, ' ');
+        if (message_str == NULL)
+            return 0;
+
+        *message_str++ = '\0';
     }
 
-    else // there was no prefix
+    // Handle escaped string preemptively so we can use strtok_r in a portable manner
+    char *trailing_param = strchr(message_str, ':');
+    if (trailing_param)
     {
-        msg->command = strtok(str, " ");
+        *trailing_param++ = '\0';
+        trailing_param = ChompWS(trailing_param);
     }
 
-    ParseParams(msg);
-}
-
-// <params>   ::= <SPACE> [ ':' <trailing> | <middle> <params> ]
-void ParseParams(IRC_MESSAGE_FIELDS *msg)
-{
-    int i = -1;
-
-    do
+    // Tokenize command and params now
+    msg->command = strtok_r(message_str, " ", &last);
+    while ((param = strtok_r(NULL, " ", &last)) != NULL)
     {
-        i++;
-        msg->params[i] = strtok(NULL, " ");
-        if (msg->params[i] != NULL)
-        {
-            char *contains_colon = strstr(msg->params[i], ":");
-            if (contains_colon)
-            {
-                msg->params[i] = (strstr(msg->message, contains_colon)) + 1;
-                msg->params[i] = ChompWS(msg->params[i]);
-                msg->params[i + 1] = NULL;
-                break;
-            }
-        }
-    } while (msg->params[i] != NULL);
+        param = ChompWS(param);
+        msg->params[msg->num_params++] = param;
+    }
+
+    // Add the trailing param to the end if there was one
+    if (trailing_param)
+        msg->params[msg->num_params++] = trailing_param;
+
+    return 0;
 }
