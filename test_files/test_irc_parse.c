@@ -5,6 +5,7 @@
 #define MAX_MESSAGE 512
 
 char *g_messages[] = {
+    "PING :irc.Prison.NET",
     ":irc.Prison.NET 004 {TEST} irc.Prison.NET ircd-ratbox-2.2.9 oiwszcerkfydnxbauglZCD biklmnopstveI bkloveI",
     "NOTICE AUTH :*** Processing connection to irc.servercentral.net",
     "PING :irc.servercentral.net ",
@@ -18,6 +19,7 @@ char *g_messages[] = {
     ":tofu1!~tofu@rootstorm.com PRIVMSG {manpage} :PING 1590092030 937335",
     ":tofu1!~tofu@rootstorm.com PRIVMSG {manpage} :VERSION",
     "::dude\\!~man@fe80::2 PRIVMSG {manpage} :message test",
+    ":isTofu!~tofu@rootstorm.com PRIVMSG {manpage} :this is a test",
     NULL,
 };
 
@@ -35,6 +37,7 @@ void ParsePrefix(char *str, IRC_MESSAGE_FIELDS *msg);
 void ParseCommand(char *str, IRC_MESSAGE_FIELDS *msg);
 void ParseParams(IRC_MESSAGE_FIELDS *msg);
 void PrintFields(IRC_MESSAGE_FIELDS msg);
+char *ChompWS(char *str);
 
 int main(int argc, char **argv)
 {
@@ -52,25 +55,39 @@ int main(int argc, char **argv)
     return 0;
 }
 
+char *ChompWS(char *str)
+{
+    str += strspn(str, " \t\r\n");
+
+    char *end = str + strlen(str) - 1;
+    while (end > str && (*end == ' ' || *end == '\t' ||
+                         *end == '\r' || *end == '\n'))
+        end--;
+
+    end[1] = '\0';
+    return str;
+}
+
 void PrintFields(IRC_MESSAGE_FIELDS msg)
 {
-    puts("\n########################\n");
-    printf("message: \t%s\n", msg.message);
+    puts("\n########################");
+    printf("<message>: \t%s\n", msg.message);
     puts("---------------");
     if (msg.prefix != NULL)
-        printf("prefix: \t%s\n", msg.prefix);
+        printf("<prefix>: \t%s\n", msg.prefix);
     else
-        printf("prefix: NULL\n");
+        printf("<prefix>: NULL\n");
 
     puts("---------------");
-    printf("command: \t%s\n", msg.command);
-
+    printf("<command>: \t%s\n", msg.command);
     puts("---------------");
 
-    printf("params:");
+    printf("<params>:");
     for (int i = 0; msg.params[i] != NULL; i++)
         printf("\t\t%s\n", msg.params[i]);
-    puts("\t\tNULL\n");
+    puts("\t\tNULL");
+    puts("---------------");
+    printf("<trailing>: \t%s\n", msg.trailing);
 
     puts("########################\n");
 }
@@ -129,6 +146,8 @@ void ParseParams(IRC_MESSAGE_FIELDS *msg)
             if (contains_colon)
             {
                 msg->params[i] = (strstr(msg->message, contains_colon)) + 1;
+                msg->params[i] = ChompWS(msg->params[i]);
+                msg->trailing = msg->params[i];
                 msg->params[i + 1] = NULL;
                 break;
             }
