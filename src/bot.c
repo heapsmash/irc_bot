@@ -40,6 +40,9 @@ char *g_nicks[] = {
 
 char *ChompWS(char *str);
 
+int GetIrcMessages(int sock);
+int GetAuth(int sock);
+
 int EstablishConnection(const char *host, const char *service_str);
 int ConnectionRegistration(int sck);
 int ConnectIRC(char *host, char *port);
@@ -48,8 +51,6 @@ void DisplayUntilFound(int sck, char *str);
 
 int main(int argc, char **argv)
 {
-    char buf[8192];
-
     if (argc < 3)
     {
         printf("usage: ./bot server port\n");
@@ -70,12 +71,52 @@ int main(int argc, char **argv)
 
 int ConnectIRC(char *host, char *port)
 {
-    int sck = EstablishConnection(host, port);
+    int sock = EstablishConnection(host, port);
 
-    if (sck == -1 || ConnectionRegistration(sck) == 0)
+    GetAuth(sock);
+
+    if (sock == -1 || ConnectionRegistration(sock) == 0)
         return 0;
 
-    return sck;
+    GetIrcMessages(sock);
+
+    return sock;
+}
+
+int GetAuth(int sock)
+{
+    TEXTSCK stream;
+    IRC_MESSAGE_FIELDS msg;
+    char buf[IRC_MTU + 1];
+
+    textsckinit(&stream, sock);
+
+    while (1)
+    {
+        netgets(buf, sizeof buf, &stream);
+        ParseMessage(buf, &msg);
+        puts(msg.message);
+
+        if (strncmp(msg.params[0], "AUTH", sizeof(msg.params[0]) - 1) == 0)
+            return 1;
+    }
+    return 0;
+}
+
+int GetIrcMessages(int sock)
+{
+    TEXTSCK stream;
+    IRC_MESSAGE_FIELDS msg;
+    char buf[IRC_MTU + 1];
+
+    textsckinit(&stream, sock);
+
+    while (1)
+    {
+        netgets(buf, sizeof buf, &stream);
+        ParseMessage(buf, &msg);
+        puts(msg.message);
+    }
 }
 
 int SendIrcMessage(int sock, char *fmt, ...)
@@ -108,19 +149,6 @@ int ConnectionRegistration(int sck)
         return 0;
 
     return 1;
-}
-
-char *ChompWS(char *str)
-{
-    str += strspn(str, " \t\r\n");
-
-    char *end = str + strlen(str) - 1;
-    while (end > str && (*end == ' ' || *end == '\t' ||
-                         *end == '\r' || *end == '\n'))
-        end--;
-
-    end[1] = '\0';
-    return str;
 }
 
 int EstablishConnection(const char *host, const char *service_str)
@@ -165,7 +193,6 @@ int EstablishConnection(const char *host, const char *service_str)
     }
     printf("all connects failed\n");
 
-fail_closefd_freeaddr:
     close(sck);
 done:
     if (listp != NULL)

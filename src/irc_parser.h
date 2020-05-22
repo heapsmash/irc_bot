@@ -17,5 +17,6 @@ void ParsePrefix(char *str, IRC_MESSAGE_FIELDS *msg);
 void ParseCommand(char *str, IRC_MESSAGE_FIELDS *msg);
 void ParseParams(IRC_MESSAGE_FIELDS *msg);
 void PrintFields(IRC_MESSAGE_FIELDS msg);
+char *ChompWS(char *str);
 
 #endif // IRC_PARSE_H

@@ -1,7 +1,7 @@
-#include "netget.h"
-
 #include <stdlib.h>
 #include <unistd.h>
+
+#include "netget.h"
 
 void textsckinit(TEXTSCK *stream, int fd)
 {

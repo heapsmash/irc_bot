@@ -1,7 +1,20 @@
-#include "irc_parser.h"
-
 #include <stdio.h>
 #include <string.h>
+
+#include "irc_parser.h"
+
+char *ChompWS(char *str)
+{
+    str += strspn(str, " \t\r\n");
+
+    char *end = str + strlen(str) - 1;
+    while (end > str && (*end == ' ' || *end == '\t' ||
+                         *end == '\r' || *end == '\n'))
+        end--;
+
+    end[1] = '\0';
+    return str;
+}
 
 void PrintFields(IRC_MESSAGE_FIELDS msg)
 {
@@ -78,6 +91,7 @@ void ParseParams(IRC_MESSAGE_FIELDS *msg)
         if (contains_colon)
         {
             msg->params[i] = (strstr(msg->message, contains_colon)) + 1;
+            msg->params[i] = ChompWS(msg->params[i]);
             msg->params[i + 1] = NULL;
             break;
         }
