@@ -20,6 +20,7 @@ char *g_messages[] = {
     ":tofu1!~tofu@rootstorm.com PRIVMSG {manpage} :VERSION\r\n",
     "::dude\\!~man@fe80::2 PRIVMSG {manpage} :message test\r\n",
     ":isTofu!~tofu@rootstorm.com PRIVMSG {manpage} :this is a test\r\n",
+    ":isTofu!~tofu@rootstorm.com PRIVMSG #c-learning :better\r\n",
     NULL,
 };
 
@@ -71,6 +72,7 @@ void PrintFields(IrcMessage msg)
     printf("[<prefix>: %s ] <command>: %s <params> ", msg.prefix, msg.command);
     for (int i = 0; i < msg.num_params; i++)
         printf("%s ", msg.params[i]);
+    puts("");
 }
 
 // <message>  ::= [':' <prefix> <SPACE> ] <command> <params> <crlf>
@@ -79,7 +81,7 @@ int ParseIrcMessage(char *message_str, IrcMessage *msg)
     char *last = NULL;
     char *param;
 
-    msg->message = strdup(message_str);
+    msg->message = ChompWS(strdup(message_str));
     msg->prefix = NULL;
     msg->num_params = 0;
 
